@@ -80,8 +80,8 @@ public class WeatherService {
         return rainyList
             .filter(e -> e.getDate().isAfter(since.minusDays(1)) && e.getDate().isBefore(until.plusDays(1)))
             .sort(Comparator.comparing(GeometricWeather::getPerimeter))
-            .last()
-            .map(e -> e.getDate().toString());
+            .last(GeometricWeather.builder().build())
+            .map(e -> e.getDate() != null ? e.getDate().toString() : "NA");
     }
 
     private Mono<WeatherStatDto> getWeatherStatDto(Tuple5<Long, Long, Long, Long, String> t) {
