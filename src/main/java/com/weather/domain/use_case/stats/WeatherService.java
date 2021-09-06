@@ -49,21 +49,36 @@ public class WeatherService {
     public Mono<WeatherStatDto> responseAnswer(final long since,final long until) {
         final Optional<LocalDate> sinceDate = Optional.of(InitSolarSystem.BEGAN_DATE_SOLAR_SYSTEM
             .plusDays(since));
+        final Optional<LocalDate> untilDate = Optional.of(InitSolarSystem.BEGAN_DATE_SOLAR_SYSTEM
+            .plusDays(until));
+
+
         final Flux<GeometricWeather> rainyList = repository.findByWeather(WeatherType.RAINY.toString());
 
         weatherProcessor.movePlanetsInTheTime(0,0,until, sinceDate, false).subscribe();
-        Mono<Long> droughtCount = repository.findByWeather(WeatherType.DROUGHT.toString()).count();
-        Mono<Long> optimumCount = repository.findByWeather(WeatherType.OPTIMUM.toString()).count();
-        Mono<Long> rainyCount = rainyList.count();
-        Mono<Long> wrongCount = repository.findByWeather(WeatherType.WRONG.toString()).count();
-        Mono<String> maxPerimeter = getMaxPerimeter(rainyList);
+        Mono<Long> droughtCount = getCountWeather(sinceDate.get(), untilDate.get(), WeatherType.DROUGHT);
+        Mono<Long> optimumCount = getCountWeather(sinceDate.get(), untilDate.get(), WeatherType.OPTIMUM);
+        Mono<Long> rainyCount = getCountWeather(sinceDate.get(), untilDate.get(), WeatherType.RAINY);
+        Mono<Long> wrongCount = getCountWeather(sinceDate.get(), untilDate.get(), WeatherType.WRONG);
+        Mono<String> maxPerimeter = getMaxPerimeter(sinceDate.get(), untilDate.get(), rainyList);
 
         return Mono.zip(droughtCount, optimumCount, rainyCount, wrongCount, maxPerimeter)
             .flatMap(this::getWeatherStatDto);
     }
 
-    private Mono<String> getMaxPerimeter(Flux<GeometricWeather> rainyList) {
+    private Mono<Long> getCountWeather(final LocalDate since,
+                                        final LocalDate until,
+                                        final WeatherType weather){
+        return repository.findByWeather(weather.toString())
+            .filter(e -> e.getDate().isAfter(since.minusDays(1)) && e.getDate().isBefore(until.plusDays(1)))
+            .count();
+    }
+
+    private Mono<String> getMaxPerimeter(final LocalDate since,
+                                         final LocalDate until,
+                                         Flux<GeometricWeather> rainyList) {
         return rainyList
+            .filter(e -> e.getDate().isAfter(since.minusDays(1)) && e.getDate().isBefore(until.plusDays(1)))
             .sort(Comparator.comparing(GeometricWeather::getPerimeter))
             .last()
             .map(e -> e.getDate().toString());
